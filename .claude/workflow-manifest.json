@@ -1,0 +1,307 @@
+{
+  "schemaVersion": 1,
+  "generatedBy": "claude-workflow-plugin 1.3.1",
+  "baseVersion": "2.4.0",
+  "installedAt": "2026-11-05",
+  "variant": {
+    "name": "nextjs-development",
+    "origin": "repo",
+    "description": "Full-stack Next.js development variant with React, TypeScript, and modern tooling support",
+    "projectType": "nextjs",
+    "version": "1.1.0"
+  },
+  "baseExclusions": {
+    "agents": [],
+    "commands": [
+      "ImplementFeature",
+      "FixBug",
+      "RefactorCode"
+    ],
+    "tasks": [
+      "feature-workflow",
+      "bug-workflow"
+    ]
+  },
+  "components": {
+    "agents": [
+      {
+        "file": "api-route-designer.md",
+        "layer": "variant"
+      },
+      {
+        "file": "code-writer.md",
+        "layer": "base"
+      },
+      {
+        "file": "cycle-planner.md",
+        "layer": "base"
+      },
+      {
+        "file": "doc-writer.md",
+        "layer": "base"
+      },
+      {
+        "file": "nextjs-specialist.md",
+        "layer": "variant"
+      },
+      {
+        "file": "prd-validator.md",
+        "layer": "base"
+      },
+      {
+        "file": "react-component-writer.md",
+        "layer": "variant"
+      },
+      {
+        "file": "researcher.md",
+        "layer": "base"
+      },
+      {
+        "file": "reviewer.md",
+        "layer": "base"
+      },
+      {
+        "file": "schema-designer.md",
+        "layer": "base"
+      },
+      {
+        "file": "status-aggregator.md",
+        "layer": "base"
+      },
+      {
+        "file": "technical-analyst.md",
+        "layer": "base"
+      },
+      {
+        "file": "test-planner.md",
+        "layer": "base"
+      }
+    ],
+    "commands": [
+      {
+        "file": "Breakdown.md",
+        "layer": "base"
+      },
+      {
+        "file": "CheckMCPStatus.md",
+        "layer": "base"
+      },
+      {
+        "file": "CreateAPIRoute.md",
+        "layer": "variant"
+      },
+      {
+        "file": "CreateComponent.md",
+        "layer": "variant"
+      },
+      {
+        "file": "CreateVariant.md",
+        "layer": "base"
+      },
+      {
+        "file": "CycleCommit.md",
+        "layer": "base"
+      },
+      {
+        "file": "CyclePlan.md",
+        "layer": "base"
+      },
+      {
+        "file": "CycleRetro.md",
+        "layer": "base"
+      },
+      {
+        "file": "CycleStatus.md",
+        "layer": "base"
+      },
+      {
+        "file": "CycleSummary.md",
+        "layer": "base"
+      },
+      {
+        "file": "EndSession.md",
+        "layer": "base"
+      },
+      {
+        "file": "FixBug.md",
+        "layer": "variant"
+      },
+      {
+        "file": "GenerateTests.md",
+        "layer": "base"
+      },
+      {
+        "file": "ImplementFeature.md",
+        "layer": "variant"
+      },
+      {
+        "file": "LogNewFeature.md",
+        "layer": "base"
+      },
+      {
+        "file": "LookupFeature.md",
+        "layer": "base"
+      },
+      {
+        "file": "PRDEnrich.md",
+        "layer": "base"
+      },
+      {
+        "file": "PRDFeasibility.md",
+        "layer": "base"
+      },
+      {
+        "file": "PRDIntake.md",
+        "layer": "base"
+      },
+      {
+        "file": "PRDSequence.md",
+        "layer": "base"
+      },
+      {
+        "file": "PRDValidate.md",
+        "layer": "base"
+      },
+      {
+        "file": "RefactorCode.md",
+        "layer": "variant"
+      },
+      {
+        "file": "ReviewCode.md",
+        "layer": "base"
+      },
+      {
+        "file": "RunSecurityAudit.md",
+        "layer": "base"
+      },
+      {
+        "file": "SessionStatus.md",
+        "layer": "base"
+      },
+      {
+        "file": "SetupProjectMeta.md",
+        "layer": "base"
+      },
+      {
+        "file": "SetupWorkflow.md",
+        "layer": "base"
+      },
+      {
+        "file": "StartSession.md",
+        "layer": "base"
+      },
+      {
+        "file": "SubmitVariant.md",
+        "layer": "base"
+      },
+      {
+        "file": "SyncLinear.md",
+        "layer": "base"
+      },
+      {
+        "file": "UpdateDocs.md",
+        "layer": "base"
+      }
+    ],
+    "tasks": [
+      {
+        "file": "async-checkin.md",
+        "layer": "base"
+      },
+      {
+        "file": "bug-workflow.md",
+        "layer": "variant"
+      },
+      {
+        "file": "ci-integration.md",
+        "layer": "base"
+      },
+      {
+        "file": "context-loader.md",
+        "layer": "base"
+      },
+      {
+        "file": "cycle-monitoring.md",
+        "layer": "base"
+      },
+      {
+        "file": "cycle-planning.md",
+        "layer": "base"
+      },
+      {
+        "file": "documentation-sync.md",
+        "layer": "base"
+      },
+      {
+        "file": "feature-workflow.md",
+        "layer": "variant"
+      },
+      {
+        "file": "git-workflow.md",
+        "layer": "base"
+      },
+      {
+        "file": "mcp-sync.md",
+        "layer": "base"
+      },
+      {
+        "file": "nextjs-build.md",
+        "layer": "variant"
+      },
+      {
+        "file": "prd-enrichment.md",
+        "layer": "base"
+      },
+      {
+        "file": "prd-validation.md",
+        "layer": "base"
+      },
+      {
+        "file": "priority-matrix.md",
+        "layer": "base"
+      },
+      {
+        "file": "project-metadata.md",
+        "layer": "base"
+      },
+      {
+        "file": "quality-gates.md",
+        "layer": "base"
+      },
+      {
+        "file": "requirement-discovery.md",
+        "layer": "base"
+      },
+      {
+        "file": "session-management.md",
+        "layer": "base"
+      },
+      {
+        "file": "team-roster.md",
+        "layer": "base"
+      },
+      {
+        "file": "technical-feasibility.md",
+        "layer": "base"
+      },
+      {
+        "file": "variant-management.md",
+        "layer": "base"
+      },
+      {
+        "file": "work-breakdown.md",
+        "layer": "base"
+      }
+    ],
+    "workflows": [
+      {
+        "file": "code-review.yml",
+        "layer": "local"
+      },
+      {
+        "file": "security-review.yml",
+        "layer": "local"
+      }
+    ]
+  }
+}
