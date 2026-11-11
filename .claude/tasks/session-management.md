@@ -18,7 +18,7 @@ Initialize a new engineering session.
 2. Validate schema version (warn if outdated)
 3. Check staleness (warn if `lastUpdated` > 24h ago)
 4. Invoke `project-metadata` task with action: `verify`
-   - Check if Linear, Coda, GitHub metadata is configured
+   - Check if Linear, documentation, GitHub metadata is configured
    - If not configured, prompt to run `/SetupProjectMeta`
    - Verify configured integrations are accessible
 5. Invoke `mcp-sync` task with action: `verifyConnections`
@@ -51,7 +51,7 @@ Close the current engineering session.
 1. Load current `session-state.json`
 2. Collect work summaries from session
 3. Invoke `mcp-sync` task with action: `syncLinear` to update issue statuses
-4. Invoke `mcp-sync` task with action: `syncCoda` if documentation changed
+4. Invoke `mcp-sync` task with action: `syncDocumentation` if documentation changed
 5. Invoke `git-workflow` task to capture repository state
 6. Populate `handoff` section:
    - Move incomplete `inProgress` items to `handoff.stashedWork`
@@ -162,7 +162,7 @@ here (no external JSON-schema file is required). Shape:
   "project":      { "name", "type", "variant" },
   "integrations": {
     "linear": { "teamName", "projectName" },
-    "coda":   { "docName", "pageName" },
+    "documentation": { "provider", "docName", "pageName" },
     "github": { "owner", "repo" }
   },
   "testAccounts": [ { "role", "username", "env", "notes" } ] // non-secret references only — never store passwords/tokens
@@ -180,7 +180,7 @@ references in `testAccounts` (no passwords or tokens).
 
 ## Dependencies
 
-- **project-metadata**: For verifying project integrations (Linear, Coda, GitHub)
+- **project-metadata**: For verifying project integrations (Linear, documentation, GitHub)
 - **mcp-sync**: For task management/documentation interactions
 - **context-loader**: For project context
 - **priority-matrix**: For task prioritization

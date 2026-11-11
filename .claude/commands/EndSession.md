@@ -132,7 +132,7 @@ If `codeReview` or `securityReview` is enabled:
 
 - `session-management.end`
 - `mcp-sync.syncLinear`
-- `mcp-sync.syncCoda`
+- `mcp-sync.syncDocumentation`
 - `git-workflow.getState`
 - `documentation-sync.updateCurrentState`
 - `ci-integration.triggerReview` (if reviews enabled)

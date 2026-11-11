@@ -168,9 +168,9 @@ Search issues by text query against titles and descriptions.
 }
 ```
 
-### `syncCoda`
+### `syncDocumentation`
 
-Synchronize with documentation system.
+Synchronize with the documentation system configured in `projectMetadata.documentation`. The concrete MCP tools are selected by `documentation.provider` (see the provider table in the `project-metadata` task). Call `project-metadata.getDocumentationContext` to resolve the provider, `docId` and `pageId` when they are not passed explicitly.
 
 **Sub-operations:**
 
@@ -335,12 +335,12 @@ Fetch prioritized backlog for planning.
 
 The task works with any configured MCP servers for:
 - Task management (Linear, Jira, etc.)
-- Documentation (Coda, Notion, etc.)
+- Documentation (Superhuman Docs, Coda, Notion, etc.)
 
 **Project Scoping:** When `project-metadata` is configured, operations are automatically scoped:
 - Linear operations use the configured team and project
-- Coda operations use the configured document and page
-- Call `project-metadata.getLinearContext` or `project-metadata.getCodaContext` to get these values
+- Documentation operations use the configured provider, document and page
+- Call `project-metadata.getLinearContext` or `project-metadata.getDocumentationContext` to get these values
 
 ## Error Handling
 
@@ -388,5 +388,5 @@ invoke mcp-sync.syncLinear.searchIssues(query="dark mode", limit=10)
 invoke mcp-sync.syncLinear.searchIssues(query="auth", includeCompleted=true)
 
 // Fetch PRD from documentation
-invoke mcp-sync.syncCoda.fetchPRD(docId="doc123", pageId="PRD Page")
+invoke mcp-sync.syncDocumentation.fetchPRD(docId="doc123", pageId="PRD Page")
 ```

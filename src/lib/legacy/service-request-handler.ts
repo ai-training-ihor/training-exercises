@@ -1,154 +1,312 @@
 /**
- * ⚠️ LEGACY CODE — SESSION 5 REFACTORING EXERCISE
+ * Service request handler — refactored in Session 5.
  *
- * This file handles service request processing. It works but has
- * significant code quality issues that need refactoring.
+ * Handles service request creation, updates and statistics.
  *
- * Known issues:
- * - Duplicated validation logic
- * - Inconsistent error handling
- * - Mixed async patterns
- * - Magic numbers and hardcoded strings
- * - No TypeScript types (uses 'any')
- * - God function that does too many things
- *
- * YOUR TASK: Use /RefactorCode to clean this up.
+ * The functions in the "Security exercise" section at the bottom of this file
+ * are intentionally left untouched: they are the Session 10 vulnerability-hunt
+ * exercise and will be addressed there.
  */
 
-// TODO: This whole file needs a rewrite but "it works" so nobody touches it
+import { z } from 'zod';
 
-var VALID_CATEGORIES = ['electrical', 'plumbing', 'hvac', 'structural', 'safety', 'general'];
+// ---------------------------------------------------------------------------
+// Constants & types
+// ---------------------------------------------------------------------------
 
-// process a new service request - handles validation, assignment, notification
-export function processNewRequest(data: any, callback: any) {
-  // validate the request
-  if (!data) {
-    callback(null, { error: 'No data provided', code: 400 });
-    return;
+export const CATEGORIES = ['electrical', 'plumbing', 'hvac', 'structural', 'safety', 'general'] as const;
+export const PRIORITIES = ['emergency', 'urgent', 'routine', 'low'] as const;
+export const STATUSES = ['open', 'assigned', 'in-progress', 'completed', 'cancelled'] as const;
+
+export type Category = (typeof CATEGORIES)[number];
+export type Priority = (typeof PRIORITIES)[number];
+export type Status = (typeof STATUSES)[number];
+
+const MIN_TITLE_LENGTH = 3;
+const MIN_DESCRIPTION_LENGTH = 10;
+const MIN_LOCATION_LENGTH = 2;
+
+const DEFAULT_CATEGORY: Category = 'general';
+const DEFAULT_PRIORITY: Priority = 'routine';
+const DEFAULT_REPORTER = 'Anonymous';
+
+const MS_PER_HOUR = 60 * 60 * 1000;
+const MS_PER_DAY = 24 * MS_PER_HOUR;
+
+/** Maximum time to resolve a request, per priority. */
+export const SLA_MS: Record<Priority, number> = {
+  emergency: MS_PER_HOUR,
+  urgent: 4 * MS_PER_HOUR,
+  routine: MS_PER_DAY,
+  low: 3 * MS_PER_DAY,
+};
+
+export interface ServiceRequestRecord {
+  id: string;
+  title: string;
+  description: string;
+  category: Category;
+  priority: Priority;
+  status: Status;
+  location: string;
+  reportedBy: string;
+  createdAt: string;
+  updatedAt: string;
+  assignedTo?: string;
+}
+
+export type Result<T> = { ok: true; data: T } | { ok: false; error: string; code: number };
+
+export interface RequestUpdates {
+  title?: string;
+  description?: string;
+  location?: string;
+  category?: Category;
+  priority?: Priority;
+  status?: Status;
+  assignedTo?: string;
+  /** Original creation time; needed to compute `sameDayResolution` on completion. */
+  createdAt?: string;
+}
+
+export type AppliedUpdates = RequestUpdates & {
+  updatedAt: string;
+  completionTime?: number;
+  sameDayResolution?: boolean;
+};
+
+type CountMap = Record<string, number>;
+
+export interface RequestStats {
+  byPriority: CountMap;
+  byCategory: CountMap;
+  byStatus: CountMap;
+  avgResolutionTime: number;
+  total: number;
+  slaCompliance: Record<Priority, number>;
+}
+
+interface Technician {
+  id: string;
+  email: string;
+}
+
+// ---------------------------------------------------------------------------
+// Validation (single source of truth for create and update)
+// ---------------------------------------------------------------------------
+
+const TITLE_MESSAGE = `Title is required and must be at least ${MIN_TITLE_LENGTH} characters`;
+const DESCRIPTION_MESSAGE = `Description is required and must be at least ${MIN_DESCRIPTION_LENGTH} characters`;
+const LOCATION_MESSAGE = 'Location is required';
+
+const titleSchema = z.string({ error: TITLE_MESSAGE }).min(MIN_TITLE_LENGTH, TITLE_MESSAGE);
+const descriptionSchema = z.string({ error: DESCRIPTION_MESSAGE }).min(MIN_DESCRIPTION_LENGTH, DESCRIPTION_MESSAGE);
+const locationSchema = z.string({ error: LOCATION_MESSAGE }).min(MIN_LOCATION_LENGTH, LOCATION_MESSAGE);
+const categorySchema = z.enum(CATEGORIES, {
+  error: `Invalid category. Must be one of: ${CATEGORIES.join(', ')}`,
+});
+const prioritySchema = z.enum(PRIORITIES, { error: 'Invalid priority' });
+const statusSchema = z.enum(STATUSES, { error: 'Invalid status' });
+
+const newRequestSchema = z.object({
+  title: titleSchema,
+  description: descriptionSchema,
+  location: locationSchema,
+  category: categorySchema.optional(),
+  priority: prioritySchema.optional(),
+  reportedBy: z.string().optional(),
+});
+
+const updateRequestSchema = z.object({
+  title: titleSchema.optional(),
+  description: descriptionSchema.optional(),
+  location: locationSchema.optional(),
+  category: categorySchema.optional(),
+  priority: prioritySchema.optional(),
+  status: statusSchema.optional(),
+  assignedTo: z.string().optional(),
+  createdAt: z.string().optional(),
+});
+
+/**
+ * Drops `null`/`undefined` values, and (for the given keys) any other falsy
+ * value too, so an empty-string optional field behaves as "not provided".
+ */
+function normalizeInput(input: object, dropFalsyKeys: readonly string[]): Record<string, unknown> {
+  return Object.fromEntries(
+    Object.entries(input).filter(([key, value]) => {
+      if (value === null || value === undefined) return false;
+      return !(dropFalsyKeys.includes(key) && !value);
+    })
+  );
+}
+
+function validate<S extends z.ZodType>(schema: S, input: unknown): Result<z.infer<S>> {
+  const parsed = schema.safeParse(input);
+  if (parsed.success) return { ok: true, data: parsed.data };
+  return { ok: false, error: parsed.error.issues[0].message, code: 400 };
+}
+
+// ---------------------------------------------------------------------------
+// Create
+// ---------------------------------------------------------------------------
+
+/** Validates, builds, auto-assigns (emergencies only) and returns a new service request. */
+export async function processNewRequest(data: unknown): Promise<Result<ServiceRequestRecord>> {
+  if (!data || typeof data !== 'object') {
+    return { ok: false, error: 'No data provided', code: 400 };
   }
 
-  if (!data.title || data.title.length < 3) {
-    callback(null, { error: 'Title is required and must be at least 3 characters', code: 400 });
-    return;
-  }
+  const validated = validate(newRequestSchema, normalizeInput(data, ['category', 'priority', 'reportedBy']));
+  if (!validated.ok) return validated;
 
-  if (!data.description || data.description.length < 10) {
-    callback(null, { error: 'Description is required and must be at least 10 characters', code: 400 });
-    return;
-  }
+  const request = await tryAutoAssign(buildRequest(validated.data));
+  return { ok: true, data: request };
+}
 
-  if (!data.location || data.location.length < 2) {
-    callback(null, { error: 'Location is required', code: 400 });
-    return;
-  }
-
-  if (data.category && VALID_CATEGORIES.indexOf(data.category) === -1) {
-    callback(null, { error: 'Invalid category. Must be one of: ' + VALID_CATEGORIES.join(', '), code: 400 });
-    return;
-  }
-
-  if (data.priority && ['emergency', 'urgent', 'routine', 'low'].indexOf(data.priority) === -1) {
-    callback(null, { error: 'Invalid priority', code: 400 });
-    return;
-  }
-
-  // generate ID - terrible approach but it works
-  var id = 'SR-' + Math.floor(Math.random() * 900000 + 100000);
-
-  var request = {
-    id: id,
-    title: data.title,
-    description: data.description,
-    category: data.category || 'general',
-    priority: data.priority || 'routine',
+function buildRequest(input: z.infer<typeof newRequestSchema>): ServiceRequestRecord {
+  const now = new Date().toISOString();
+  return {
+    id: generateRequestId(),
+    title: input.title,
+    description: input.description,
+    category: input.category ?? DEFAULT_CATEGORY,
+    priority: input.priority ?? DEFAULT_PRIORITY,
     status: 'open',
-    location: data.location,
-    reportedBy: data.reportedBy || 'Anonymous',
-    createdAt: new Date().toISOString(),
-    updatedAt: new Date().toISOString(),
+    location: input.location,
+    reportedBy: input.reportedBy ?? DEFAULT_REPORTER,
+    createdAt: now,
+    updatedAt: now,
   };
-
-  // try to auto-assign based on priority
-  if (request.priority === 'emergency') {
-    // find any available technician - hardcoded logic
-    var techs = getAvailableTechnicians();
-    if (techs.length > 0) {
-      request.status = 'assigned';
-      (request as any).assignedTo = techs[0].id;
-      // send emergency notification
-      sendNotification(techs[0].email, 'EMERGENCY: ' + request.title, 'Urgent service request requires immediate attention at ' + request.location);
-    }
-  }
-
-  callback(request, null);
 }
 
+// TODO: Math.random() IDs can collide and are guessable; use a DB sequence or UUID.
+function generateRequestId(): string {
+  return `SR-${Math.floor(Math.random() * 900000 + 100000)}`;
+}
 
-// update an existing service request
-export async function updateRequest(id: any, updates: any) {
-  // validate id
+/** Emergency requests are assigned to the first available technician and notified immediately. */
+async function tryAutoAssign(request: ServiceRequestRecord): Promise<ServiceRequestRecord> {
+  if (request.priority !== 'emergency') return request;
+
+  const [technician] = await getAvailableTechnicians();
+  if (!technician) return request;
+
+  sendNotification(
+    technician.email,
+    `EMERGENCY: ${request.title}`,
+    `Urgent service request requires immediate attention at ${request.location}`
+  );
+  return { ...request, status: 'assigned', assignedTo: technician.id };
+}
+
+// ---------------------------------------------------------------------------
+// Update
+// ---------------------------------------------------------------------------
+
+/** Validates and applies updates to a request. Throws `Error` on invalid input. */
+export async function updateRequest(id: string, updates: RequestUpdates): Promise<AppliedUpdates> {
   if (!id || typeof id !== 'string') {
-    return Promise.reject('Invalid request ID');
+    throw new Error('Invalid request ID');
   }
 
-  // validate the updates - DUPLICATE validation from above
-  if (updates.title !== undefined && updates.title !== null) {
-    if (updates.title.length < 3) {
-      throw new Error('Title must be at least 3 characters');
-    }
+  const validated = validate(updateRequestSchema, normalizeInput(updates ?? {}, ['category', 'priority', 'status']));
+  if (!validated.ok) throw new Error(validated.error);
+
+  const applied: AppliedUpdates = { ...validated.data, updatedAt: new Date().toISOString() };
+
+  if (applied.status === 'completed') {
+    Object.assign(applied, completionFields(applied.createdAt));
   }
 
-  if (updates.description !== undefined && updates.description !== null) {
-    if (updates.description.length < 10) {
-      throw new Error('Description must be at least 10 characters');
-    }
+  if (applied.status === 'assigned' && applied.assignedTo) {
+    await notifyAssignment(id, applied.assignedTo);
   }
 
-  if (updates.location !== undefined && updates.location !== null) {
-    if (updates.location.length < 2) {
-      throw new Error('Location is required');
-    }
-  }
-
-  if (updates.category) {
-    if (VALID_CATEGORIES.indexOf(updates.category) === -1) {
-      throw new Error('Invalid category');
-    }
-  }
-
-  if (updates.priority) {
-    if (['emergency', 'urgent', 'routine', 'low'].indexOf(updates.priority) === -1) {
-      throw new Error('Invalid priority');
-    }
-  }
-
-  if (updates.status) {
-    if (['open', 'assigned', 'in-progress', 'completed', 'cancelled'].indexOf(updates.status) === -1) {
-      throw new Error('Invalid status');
-    }
-  }
-
-  updates.updatedAt = new Date().toISOString();
-
-  // handle status transitions
-  if (updates.status === 'completed') {
-    // calculate completion time - magic number alert
-    updates.completionTime = Date.now();
-    // 86400000 = milliseconds in a day, we track if it was resolved same day
-    updates.sameDayResolution = (Date.now() - new Date(updates.createdAt || 0).getTime()) < 86400000;
-  }
-
-  if (updates.status === 'assigned' && updates.assignedTo) {
-    // notify the assigned technician
-    var techEmail = getTechnicianEmail(updates.assignedTo);
-    if (techEmail) {
-      sendNotification(techEmail, 'New Assignment: ' + id, 'You have been assigned to service request ' + id);
-    }
-  }
-
-  return updates;
+  return applied;
 }
 
+function completionFields(createdAt: string | undefined): Pick<AppliedUpdates, 'completionTime' | 'sameDayResolution'> {
+  const now = Date.now();
+  return {
+    completionTime: now,
+    // Without a known creation time we cannot tell, so leave it unset rather than guess.
+    sameDayResolution: createdAt ? now - new Date(createdAt).getTime() < MS_PER_DAY : undefined,
+  };
+}
+
+async function notifyAssignment(requestId: string, technicianId: string): Promise<void> {
+  const email = await getTechnicianEmail(technicianId);
+  if (email) {
+    sendNotification(email, `New Assignment: ${requestId}`, `You have been assigned to service request ${requestId}`);
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Statistics
+// ---------------------------------------------------------------------------
+
+export async function getRequestStats(timeRange: unknown): Promise<RequestStats> {
+  const [byPriority, byCategory, byStatus, avgResolutionTime, total] = await Promise.all([
+    countByField('priority', timeRange),
+    countByField('category', timeRange),
+    countByField('status', timeRange),
+    calculateAvgResolutionTime(timeRange),
+    getTotalCount(timeRange),
+  ]);
+
+  return {
+    byPriority,
+    byCategory,
+    byStatus,
+    avgResolutionTime,
+    total,
+    slaCompliance: buildSlaCompliance(byPriority),
+  };
+}
+
+// TODO: these keys are not produced by countByField; compute SLA compliance from
+// resolution times against SLA_MS once the real queries exist.
+function buildSlaCompliance(byPriority: CountMap): Record<Priority, number> {
+  return Object.fromEntries(
+    PRIORITIES.map((priority) => [priority, byPriority[`${priority}_resolved_in_time`] || 0])
+  ) as Record<Priority, number>;
+}
+
+// ---------------------------------------------------------------------------
+// Helper functions (stubs for training)
+// ---------------------------------------------------------------------------
+
+async function getAvailableTechnicians(): Promise<Technician[]> {
+  // In production, this queries the database
+  return [];
+}
+
+async function getTechnicianEmail(_techId: string): Promise<string | null> {
+  // In production, this looks up the technician
+  return null;
+}
+
+function sendNotification(email: string, subject: string, _body: string): void {
+  // In production, this sends an email
+  console.log(`[NOTIFICATION] To: ${email}, Subject: ${subject}`);
+}
+
+async function countByField(_field: string, _timeRange: unknown): Promise<CountMap> {
+  return {};
+}
+
+async function calculateAvgResolutionTime(_timeRange: unknown): Promise<number> {
+  return 0;
+}
+
+async function getTotalCount(_timeRange: unknown): Promise<number> {
+  return 0;
+}
+
+// ===========================================================================
+// Security exercise (Session 10) — INTENTIONALLY UNCHANGED. Do not refactor.
+// ===========================================================================
 
 // search service requests - WARNING: has SQL injection vulnerability (Session 10 exercise)
 export function searchRequests(query: any, filters: any) {
@@ -178,101 +336,6 @@ export function searchRequests(query: any, filters: any) {
   console.log('Executing query:', sql);
 
   return { query: sql, results: results };
-}
-
-
-// get request statistics - callback hell
-export function getRequestStats(timeRange: any, callback: any) {
-  var stats: any = {};
-
-  // count by priority
-  countByField('priority', timeRange, function(err: any, priorityCounts: any) {
-    if (err) {
-      callback(null, err);
-      return;
-    }
-    stats.byPriority = priorityCounts;
-
-    // count by category
-    countByField('category', timeRange, function(err: any, categoryCounts: any) {
-      if (err) {
-        callback(null, err);
-        return;
-      }
-      stats.byCategory = categoryCounts;
-
-      // count by status
-      countByField('status', timeRange, function(err: any, statusCounts: any) {
-        if (err) {
-          callback(null, err);
-          return;
-        }
-        stats.byStatus = statusCounts;
-
-        // calculate average resolution time
-        calculateAvgResolutionTime(timeRange, function(err: any, avgTime: any) {
-          if (err) {
-            callback(null, err);
-            return;
-          }
-          stats.avgResolutionTime = avgTime;
-
-          // total count
-          getTotalCount(timeRange, function(err: any, total: any) {
-            if (err) {
-              callback(null, err);
-              return;
-            }
-            stats.total = total;
-
-            // SLA compliance - hardcoded SLA times in milliseconds
-            // emergency: 1 hour = 3600000, urgent: 4 hours = 14400000
-            // routine: 24 hours = 86400000, low: 72 hours = 259200000
-            stats.slaCompliance = {
-              emergency: stats.byPriority.emergency_resolved_in_time || 0,
-              urgent: stats.byPriority.urgent_resolved_in_time || 0,
-              routine: stats.byPriority.routine_resolved_in_time || 0,
-              low: stats.byPriority.low_resolved_in_time || 0,
-            };
-
-            callback(stats, null);
-          });
-        });
-      });
-    });
-  });
-}
-
-
-// Helper functions (stubs for training)
-function getAvailableTechnicians(): any[] {
-  // In production, this queries the database
-  return [];
-}
-
-function getTechnicianEmail(techId: string): string | null {
-  // In production, this looks up the technician
-  return null;
-}
-
-function sendNotification(email: string, subject: string, body: string) {
-  // In production, this sends an email
-  console.log(`[NOTIFICATION] To: ${email}, Subject: ${subject}`);
-}
-
-function countByField(field: string, timeRange: any, callback: any) {
-  // Stub
-  callback(null, {});
-}
-
-function calculateAvgResolutionTime(timeRange: any, callback: any) {
-  // Stub
-  callback(null, 0);
-}
-
-function getTotalCount(timeRange: any, callback: any) {
-  // Stub
-  callback(null, 0);
 }
 
 

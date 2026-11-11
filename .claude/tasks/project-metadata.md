@@ -1,17 +1,17 @@
 ---
 name: project-metadata
-description: Manage project-specific metadata for Linear, Coda, and GitHub integrations
+description: Manage project-specific metadata for Linear, documentation, and GitHub integrations
 ---
 
 # Project Metadata Task
 
-Centralized management of project-specific integration metadata. Handles setup, verification, and retrieval of Linear project, Coda documentation, and GitHub repository configurations.
+Centralized management of project-specific integration metadata. Handles setup, verification, and retrieval of Linear project, documentation (provider-neutral), and GitHub repository configurations.
 
 ## Purpose
 
 Every project using the Claude Workflow System needs to be connected to external services:
 - **Linear**: Project/team for issue tracking and task management
-- **Coda**: Document and page for product requirements and documentation
+- **Documentation**: Document and page for product requirements and documentation. The backing system is identified by `documentation.provider` (e.g. `superhuman-docs`, `coda`, `notion`); see [Documentation Providers](#documentation-providers)
 - **GitHub**: Repository for source control and CI/CD
 
 This task ensures these connections are configured and verified before workflow operations.
@@ -24,14 +24,14 @@ Check if project metadata is configured and valid.
 
 **Steps:**
 1. Load `.claude/settings.json`
-2. Check for `projectMetadata` section
+2. Check for `projectMetadata` section. If it has a legacy `coda` key and no `documentation` key, apply the [legacy migration](#legacy-coda-key-migration)
 3. Validate required fields are present:
    - `linear.teamId` or `linear.projectId`
-   - `coda.docId` (optional but recommended)
+   - `documentation.provider` and `documentation.docId` (optional but recommended)
    - `github.repo` (auto-detected from git remote if not set)
 4. Test connections via MCP if configured:
    - Verify Linear team/project exists
-   - Verify Coda document is accessible
+   - Verify the documentation doc is accessible via the configured provider
    - Verify GitHub repo access
 5. Invoke `verifyTeamRoster` and include its status in the output
 6. Return verification status
@@ -49,8 +49,9 @@ Check if project metadata is configured and valid.
     "projectName": "My Project",
     "verified": true
   },
-  "coda": {
+  "documentation": {
     "configured": true,
+    "provider": "superhuman-docs",
     "docId": "abc123",
     "docName": "Project Documentation",
     "pageId": "Requirements",
@@ -102,11 +103,12 @@ Interactive setup of project metadata.
    - List available teams via MCP
    - List projects within selected team
    - Store team and project IDs
-4. Prompt for Coda configuration:
-   - List available documents via MCP
+4. Prompt for documentation configuration:
+   - Detect or ask for the provider (match connected MCP servers against the [provider table](#documentation-providers))
+   - List available documents via the provider's MCP tools (if the connection is scoped and cannot list, ask for a keyword or document URL)
    - List pages within selected document
    - Optionally create new project page
-   - Store document and page IDs
+   - Store provider, document and page IDs
 5. Confirm GitHub repository:
    - Auto-detect from git remote
    - Allow override if needed
@@ -123,7 +125,7 @@ Interactive setup of project metadata.
   "success": true,
   "metadata": {
     "linear": { ... },
-    "coda": { ... },
+    "documentation": { ... },
     "github": { ... }
   },
   "message": "Project metadata configured successfully"
@@ -148,17 +150,18 @@ Retrieve Linear project context for issue operations.
 }
 ```
 
-### `getCodaContext`
+### `getDocumentationContext`
 
-Retrieve Coda document context for documentation operations.
+Retrieve documentation context (provider, document and page) for documentation operations.
 
 **Steps:**
-1. Load project metadata
-2. Return document and page identifiers
+1. Load project metadata (applying the [legacy migration](#legacy-coda-key-migration) if only a `coda` key exists)
+2. Return provider, document and page identifiers
 
 **Outputs:**
 ```json
 {
+  "provider": "superhuman-docs",
   "docId": "abc123",
   "docName": "Project Documentation",
   "pageId": "page-id",
@@ -213,12 +216,12 @@ Ensure Linear project exists, create if needed.
 }
 ```
 
-### `ensureCodaPage`
+### `ensureDocumentationPage`
 
-Ensure Coda project page exists, create if needed.
+Ensure the documentation project page exists, create if needed.
 
 **Steps:**
-1. Check if Coda metadata configured
+1. Check if documentation metadata configured
 2. If configured, verify page exists
 3. If not exists, offer to create:
    - Create page with project name
@@ -278,11 +281,14 @@ Project metadata is stored in `.claude/settings.json` under the `projectMetadata
       "projectId": "project-uuid",
       "projectName": "My Project"
     },
-    "coda": {
+    "documentation": {
+      "provider": "superhuman-docs",
       "docId": "document-id",
       "docName": "Project Documentation",
       "pageId": "page-id",
-      "pageName": "My Project Requirements"
+      "pageName": "My Project Requirements",
+      "docUri": "superhuman://docs/document-id",
+      "pageUri": "pages/page-id"
     },
     "github": {
       "repo": "org/repo-name",
@@ -293,6 +299,32 @@ Project metadata is stored in `.claude/settings.json` under the `projectMetadata
 }
 ```
 
+`provider`, `docId` and `pageId` are the core fields. `docUri` and `pageUri` are optional and only used by providers that address content by URI (e.g. `superhuman-docs`).
+
+## Documentation Providers
+
+`documentation.provider` selects which MCP tools implement the documentation operations used by `mcp-sync.syncDocumentation`, `PRDIntake` and `SetupProjectMeta`. Operations are defined provider-neutrally; this table maps them to concrete tools.
+
+MCP tools are exposed as `mcp__<server>__<tool>`, where `<server>` may be a generated ID rather than the provider name. Resolve a tool by its suffix (the part after the last `__`) against the connected servers.
+
+| Operation | `superhuman-docs` | `coda` |
+|-----------|-------------------|--------|
+| List documents | `search` (with `workspaceId` or `folder`; scoped connections may require a `query` keyword) | `coda_list_documents` |
+| List pages | `document_outline` (`uri`: `superhuman://docs/{docId}`) | `coda_list_pages` |
+| Read page | `content_read` | provider's page-content tool |
+| Create page | `page_create` | provider's page-create tool |
+| Update / append to page | `content_modify` | provider's page-update tool |
+| Identity check | `whoami` | provider's identity tool |
+
+Adding a provider means adding a column here; no other file needs to change.
+
+### Legacy `coda` key migration
+
+Projects installed before this change store documentation metadata under `projectMetadata.coda` with no `provider`. When `documentation` is absent and `coda` is present:
+1. Treat the `coda` object as `documentation` with `provider: "coda"` (unless it already has a `provider`, e.g. `superhuman-docs`)
+2. On the next write to `.claude/settings.json`, save it under `documentation` and remove the `coda` key
+3. Never read both: if both keys exist, `documentation` wins and the `coda` key is ignored
+
 ## Integration with Other Tasks
 
 ### Session Management
@@ -302,7 +334,7 @@ Project metadata is stored in `.claude/settings.json` under the `projectMetadata
 
 ### MCP Sync
 - `mcp-sync.syncLinear` uses `project-metadata.getLinearContext` for team/project filtering
-- `mcp-sync.syncCoda` uses `project-metadata.getCodaContext` for document targeting
+- `mcp-sync.syncDocumentation` uses `project-metadata.getDocumentationContext` for provider and document targeting
 
 ### Context Loader
 - Includes project metadata in session context
@@ -318,7 +350,8 @@ Project metadata is stored in `.claude/settings.json` under the `projectMetadata
 | Settings file missing | Create default settings, prompt for setup |
 | Metadata section missing | Prompt for setup |
 | Linear connection failed | Mark as unverified, allow offline mode |
-| Coda connection failed | Mark as unverified, continue without |
+| Documentation connection failed | Mark as unverified, continue without |
+| Unknown `documentation.provider` | Warn, mark as unverified, ask the user to pick a provider from the table |
 | GitHub not detected | Warn, allow manual configuration |
 | Invalid project/team ID | Clear invalid config, prompt for reconfiguration |
 
@@ -340,6 +373,6 @@ invoke project-metadata.getLinearContext
 
 // Ensure all integrations are ready
 invoke project-metadata.ensureLinearProject(createIfMissing=true)
-invoke project-metadata.ensureCodaPage(createIfMissing=true)
+invoke project-metadata.ensureDocumentationPage(createIfMissing=true)
 invoke project-metadata.ensureGitHubRepo
 ```

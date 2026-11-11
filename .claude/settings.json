@@ -10,16 +10,19 @@
   },
   "projectMetadata": {
     "linear": {
-      "teamId": null,
-      "teamName": null,
-      "projectId": null,
-      "projectName": null
+      "teamId": "f7b6a74a-4d30-46c0-8c2f-33531c4f4ab9",
+      "teamName": "Ihor Lytvynenko",
+      "projectId": "ffc4c407-0977-4cec-a1fd-a2394488595c",
+      "projectName": "training-course"
     },
-    "coda": {
-      "docId": null,
-      "docName": null,
-      "pageId": null,
-      "pageName": null
+    "documentation": {
+      "provider": "superhuman-docs",
+      "docId": "TnfbgT-tdx",
+      "docName": "Ihor's Playground",
+      "pageId": "section-ZediRgPNuv",
+      "pageName": "training-exercises Requirements",
+      "docUri": "superhuman://docs/TnfbgT-tdx",
+      "pageUri": "pages/section-ZediRgPNuv"
     },
     "github": {
       "repo": "ai-training-ihor/training-exercises",
@@ -39,12 +42,12 @@
       "securityReview": true
     },
     "taskManagement": {
-      "provider": null,
+      "provider": "linear",
       "projectKey": null,
       "autoSync": false
     },
     "documentation": {
-      "provider": null,
+      "provider": "superhuman-docs",
       "autoSync": false
     }
   },

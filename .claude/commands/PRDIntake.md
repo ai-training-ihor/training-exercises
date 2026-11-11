@@ -1,5 +1,5 @@
 ---
-description: Import a PRD from external source (Coda, Confluence, local file) and create Linear Initiative
+description: Import a PRD from external source (documentation provider, Confluence, local file) and create Linear Initiative
 ---
 
 # PRDIntake
@@ -8,18 +8,18 @@ Import a Product Requirements Document from an external source and set up tracki
 
 ## Purpose
 
-Entry point for bringing a PRD into the workflow system. Fetches content from external sources (Coda, Confluence, local markdown files), parses the document structure, creates or links a Linear Initiative, and stores the PRD locally for downstream processing (validation, enrichment, feasibility).
+Entry point for bringing a PRD into the workflow system. Fetches content from external sources (documentation providers such as Superhuman Docs or Coda, Confluence, local markdown files), parses the document structure, creates or links a Linear Initiative, and stores the PRD locally for downstream processing (validation, enrichment, feasibility).
 
 ## Arguments
 
-- `url`: URL to PRD document (Coda, Confluence, or other supported source)
+- `url`: URL to PRD document (documentation provider, Confluence, or other supported source)
 - `file`: Path to local markdown file (alternative to `url`)
 - `initiative`: Optional Linear Initiative ID to link to (if omitted, a new Initiative is created)
 
 ## Execution
 
 1. Fetch PRD content via MCP
-   - For `coda.io` URLs: Use Coda MCP to retrieve document content
+   - For documentation-provider URLs (`docs.superhuman.com` for `superhuman-docs`, `coda.io` for `coda`): Use the matching documentation MCP tools (see the provider table in the `project-metadata` task) to retrieve document content. For other hosts, fall back to the project's configured `documentation.provider`
    - For Confluence URLs: Use Confluence MCP to retrieve page content
    - For local files: Read markdown file from provided `file` path
    - Normalize content to consistent markdown format
@@ -48,7 +48,7 @@ Entry point for bringing a PRD into the workflow system. Fetches content from ex
 ## Prerequisites
 
 - At least one of `url` or `file` must be provided
-- Coda MCP configured and authenticated (for Coda URLs)
+- Documentation MCP configured and authenticated (for documentation-provider URLs)
 - Linear MCP configured and authenticated
 - `/docs/planning/prds/` directory exists (created if missing)
 
@@ -60,7 +60,7 @@ Entry point for bringing a PRD into the workflow system. Fetches content from ex
 ## Example
 
 ```
-/PRDIntake url="https://coda.io/d/Project-Docs_d1234/PRD-User-Onboarding_su567"
+/PRDIntake url="https://docs.superhuman.com/d/_dd1234/PRD-User-Onboarding_su567"
 ```
 
 ```

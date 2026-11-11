@@ -14,7 +14,7 @@ Handles PRD intake from multiple sources, validates structure and completeness, 
 Fetch PRD from URL or file, parse structure, store locally with metadata.
 
 **Steps:**
-1. Determine source type (Coda URL, Confluence URL, local file)
+1. Determine source type (documentation-provider URL, Confluence URL, local file)
 2. Fetch content via appropriate MCP or file read
 3. Parse PRD structure - identify sections (problem statement, user personas, requirements, acceptance criteria, non-functional requirements, security considerations)
 4. Generate feature slug from PRD title
@@ -33,8 +33,9 @@ Fetch PRD from URL or file, parse structure, store locally with metadata.
   "slug": "user-auth-revamp",
   "title": "User Authentication Revamp",
   "source": {
-    "type": "coda",
-    "url": "https://coda.io/d/...",
+    "type": "documentation",
+    "provider": "superhuman-docs",
+    "url": "https://docs.superhuman.com/d/...",
     "fetchedAt": "2026-01-16T10:00:00Z"
   },
   "sections": [
@@ -153,4 +154,4 @@ Validation thresholds can be customized per project via `/docs/planning/validati
 
 ## Dependencies
 
-- **mcp-sync**: For fetching PRDs from Coda/Confluence documentation sources
+- **mcp-sync**: For fetching PRDs from documentation providers (Superhuman Docs, Coda, ...) and Confluence

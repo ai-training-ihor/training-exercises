@@ -26,7 +26,7 @@ Find requirements for a feature or task.
    - Glob `/docs/specs/*.md` for matching specs
    - Extract relevant sections using keyword matching
 2. **External Search (if enabled):**
-   - Invoke `mcp-sync.syncCoda.fetchPRD` for known PRD pages
+   - Invoke `mcp-sync.syncDocumentation.fetchPRD` for known PRD pages
    - Search documentation for matching content
 3. **Task Management Search (if enabled):**
    - Invoke `mcp-sync.syncLinear.fetchIssues` with query filter

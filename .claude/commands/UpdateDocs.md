@@ -14,7 +14,7 @@ Provides documentation management capabilities for auditing document health, syn
 
 - `action`: Documentation action (required)
   - `audit` - Audit documentation health
-  - `sync` - Sync with external documentation (e.g., Coda)
+  - `sync` - Sync with external documentation (the configured `documentation.provider`, e.g., Superhuman Docs)
   - `archive` - Archive old session files
   - `map` - Generate implementation map
 - `scope`: Audit scope (for audit action)

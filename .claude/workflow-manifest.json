@@ -1,7 +1,7 @@
 {
   "schemaVersion": 1,
   "generatedBy": "claude-workflow-plugin 1.3.1",
-  "baseVersion": "2.4.0",
+  "baseVersion": "2.4.1",
   "installedAt": "2026-11-05",
   "variant": {
     "name": "nextjs-development",
@@ -303,5 +303,6 @@
         "layer": "local"
       }
     ]
-  }
+  },
+  "updatedAt": "2026-11-05"
 }

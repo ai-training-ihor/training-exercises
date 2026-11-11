@@ -1,24 +1,24 @@
 ---
 name: SetupProjectMeta
-description: Reconfigure project integration metadata for Linear, Coda, and GitHub
+description: Reconfigure project integration metadata for Linear, documentation, and GitHub
 user_invocable: true
 ---
 
 # /SetupProjectMeta
 
-Reconfigure the project's integration metadata for Linear (task management), Coda (documentation), and GitHub (source control). Use this command to change integrations after initial setup or to configure integrations that were skipped.
+Reconfigure the project's integration metadata for Linear (task management), documentation (e.g. Superhuman Docs, Coda), and GitHub (source control). Use this command to change integrations after initial setup or to configure integrations that were skipped.
 
 ## Purpose
 
 Project integrations are normally configured during `/SetupWorkflow`. Use this command when you need to:
 - Change the Linear team or project
-- Switch to a different Coda document or page
+- Switch to a different documentation document or page (or change documentation provider)
 - Update the GitHub repository association
 - Configure integrations that were skipped during initial setup
 
 The workflow system uses this metadata to:
 - Create and query issues in the correct Linear project
-- Read and update product requirements in the correct Coda page
+- Read and update product requirements in the correct documentation page
 - Verify GitHub repository access
 
 ## Usage
@@ -32,7 +32,7 @@ The workflow system uses this metadata to:
 - `--force`: Overwrite existing metadata configuration
 - `--verify-only`: Only verify existing configuration without prompting for changes
 - `--linear-only`: Only configure Linear integration
-- `--coda-only`: Only configure Coda integration
+- `--docs-only`: Only configure documentation integration (`--coda-only` is accepted as a deprecated alias)
 - `--github-only`: Only configure GitHub integration
 
 ## Interactive Setup Process
@@ -55,15 +55,17 @@ When invoked, this command will:
 6. If creating new project, prompt for project name and details
 7. Store team and project IDs in settings
 
-### 3. Configure Coda Integration
+### 3. Configure Documentation Integration
 
-1. Verify Coda MCP connection
-2. List available documents via `mcp__coda__coda_list_documents`
-3. Prompt user to select document
-4. List pages in selected document via `mcp__coda__coda_list_pages`
-5. Prompt user to select or create project requirements page
-6. If creating new page, use PRD template
-7. Store document and page IDs in settings
+1. Determine the provider: match connected MCP servers against the provider table in the `project-metadata` task (e.g. `superhuman-docs`, `coda`); if several match or none do, ask the user. If the user passed a provider (e.g. "use superhuman docs"), use it
+2. Verify the provider's MCP connection (identity check)
+3. List available documents using the provider's list-documents tool. If the connection is scoped and cannot list everything, ask the user for a keyword or document URL and search instead
+4. Prompt user to select document
+5. List pages in the selected document using the provider's list-pages tool
+6. Prompt user to select or create project requirements page
+7. If creating a new page, use the PRD template
+8. Store `provider`, document and page IDs in settings under `projectMetadata.documentation`
+9. If the settings still have a legacy `projectMetadata.coda` key, migrate it into `documentation` and remove it
 
 ### 4. Configure GitHub Integration
 
@@ -82,7 +84,7 @@ When invoked, this command will:
 ## Prerequisites
 
 - Linear MCP server configured and authenticated
-- Coda MCP server configured and authenticated (optional)
+- A documentation MCP server (Superhuman Docs, Coda, ...) configured and authenticated (optional)
 - GitHub CLI (`gh`) authenticated
 - `.claude/settings.json` exists (created by `/SetupWorkflow`)
 
@@ -99,7 +101,8 @@ Updates `.claude/settings.json` with:
       "projectId": "project-uuid",
       "projectName": "My Project"
     },
-    "coda": {
+    "documentation": {
+      "provider": "superhuman-docs",
       "docId": "document-id",
       "docName": "Project Documentation",
       "pageId": "page-id",
@@ -134,7 +137,7 @@ Updates `.claude/settings.json` with:
 
 1. Load current settings from `.claude/settings.json`
 2. Check MCP connection status via `mcp-sync.verifyConnections`
-3. For each integration (Linear, Coda, GitHub):
+3. For each integration (Linear, documentation, GitHub):
    - Check if already configured
    - If not configured or `--force`, run interactive setup
    - Verify configuration is valid
@@ -147,7 +150,7 @@ Updates `.claude/settings.json` with:
 |-------|--------|
 | Settings file missing | Create default settings file first |
 | Linear MCP not connected | Skip Linear setup, warn user |
-| Coda MCP not connected | Skip Coda setup, warn user |
+| Documentation MCP not connected | Skip documentation setup, warn user |
 | GitHub CLI not authenticated | Skip GitHub setup, warn user |
 | Team/project not found | Clear invalid config, re-prompt |
 
@@ -168,5 +171,5 @@ Updates `.claude/settings.json` with:
 
 - This command should be run once when setting up a new project
 - Re-run with `--force` if you need to change project associations
-- Linear and Coda configurations are optional but recommended
+- Linear and documentation configurations are optional but recommended
 - GitHub is auto-detected but can be overridden

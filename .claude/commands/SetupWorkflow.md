@@ -67,7 +67,7 @@ When invoked, this command will:
 6. **Configure Project Integrations**
    - Detect GitHub repository from git remote (auto-configure)
    - Prompt for Linear team and project selection (via MCP)
-   - Prompt for Coda document and page selection (via MCP)
+   - Prompt for documentation provider, document and page selection (via MCP)
    - Store configuration in `.claude/settings.json` under `projectMetadata`
    - Skip any integration if MCP not available (can configure later)
 
@@ -89,7 +89,7 @@ For empty directories or projects without `.claude/`:
 - Creates full directory structure
 - Copies all components
 - Generates CLAUDE.md from template
-- Runs full project integration setup (Linear, Coda, GitHub)
+- Runs full project integration setup (Linear, documentation, GitHub)
 
 ### Update Existing Project
 For projects with existing workflow setup:
@@ -162,7 +162,7 @@ Variant created! Continuing setup with swift-ios...
 
 ## Tasks Invoked
 
-- `project-metadata.setup` - Configure Linear, Coda, GitHub integrations
+- `project-metadata.setup` - Configure Linear, documentation, GitHub integrations
 - `mcp-sync.verifyConnections` - Check MCP availability before integration setup
 - `variant-management.create` - Create new variant (if selected)
 - `variant-management.validate` - Validate variant before use
